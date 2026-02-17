@@ -14,7 +14,7 @@ from sklearn.neighbors import NearestNeighbors
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.utils import Sequence
 
-from data_utils import num_data_points,num_anchors,ground_truth,sample_data,enforce_boundaries,perturb_data,low,high,dimX,dimY,K_MAX
+from data_utils import num_data_points,num_anchors,ground_truth,sample_data,enforce_boundaries,perturb_data,low,high,dimX,dimY,K_MAX,noise
 
 ### Functions
 # Split Data
@@ -32,16 +32,16 @@ def split(x, y, val_pct = 0.2, test_pct = 0.2, seed = None):
     return (x[train_idx], y[train_idx]), (x[val_idx], y[val_idx]), (x[test_idx], y[test_idx])
 
 collect_NN_mse = []
+X = sample_data(num_data_points)
+Y = ground_truth(X)
+(x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=0)
+
 for i in range(5):
 
     ### Training
     np.random.seed(i)
     keras.utils.set_random_seed(i)
     
-    X = sample_data(num_data_points)
-    Y = ground_truth(X)
-    # Train Val Test Split
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=i)
     
     model = keras.Sequential([
         layers.Dense(640, activation="relu", input_shape=(y_train.shape[-1],)),
@@ -85,7 +85,7 @@ for i in range(5):
     plt.plot(history.history["val_loss"])
     plt.xlabel("Epoch")
     plt.ylabel("MAE")
-    plt.legend(["Train MSE", "Val MAE"])
+    plt.legend(["Train MAE", "Val MAE"])
     plt.title("Training Curve")
     plt.show()
     

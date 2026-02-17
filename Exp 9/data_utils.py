@@ -7,48 +7,96 @@ Created on Mon Nov 17 12:28:57 2025
 
 import numpy as np
 
-# data ranges
-dimX = 3
-dimY = 3
+# =========================
+# Data configuration
+# =========================
 
-low = -np.pi/2 # if the data ranges are in different orders of magnitudes, normalize to ensure proper nearest neighbor finding
+dimX = 6   # 6 joint angles (6-DoF robot)
+dimY = 3   # We output end-effector position (x, y, z)
+
+low = -np.pi/2
 high = np.pi/2
 
 num_data_points = 1000
 noise = 0.01
 
-num_anchors = 600 # max 0.6 * num_data_points, to leave room for val and test sets
+num_anchors = 600
+K_MAX = 5
 
-K_MAX = 5      # Upper limit for k
+
+# =========================
+# DH Transformation
+# =========================
+
+def dh_matrix(theta, d, a, alpha):
+    return np.array([
+        [np.cos(theta), -np.sin(theta)*np.cos(alpha),  np.sin(theta)*np.sin(alpha), a*np.cos(theta)],
+        [np.sin(theta),  np.cos(theta)*np.cos(alpha), -np.cos(theta)*np.sin(alpha), a*np.sin(theta)],
+        [0,              np.sin(alpha),               np.cos(alpha),               d],
+        [0,              0,                           0,                           1]
+    ])
 
 
-# ground truth
-def spatial2(theta, phi1, phi2, L1=1.0, L2=1.0):
-    x = np.cos(theta)*(L1*np.cos(phi1)+L2*np.cos(phi1+phi2))
-    y = np.sin(theta)*(L1*np.cos(phi1)+L2*np.cos(phi1+phi2))
-    z = L1*np.sin(phi1)+L2*np.sin(phi1+phi2)
-    return x, y, z
+# =========================
+# Robot Arm Forward Model
+# =========================
+
+def forward_kinematics(thetas):
+    """
+    thetas: array of shape (6,)
+    returns: end-effector position (x, y, z)
+    """
+
+    # Example fixed DH parameters (general non-spherical wrist case)
+    d = [0.3, 0.0, 0.0, 0.4, 0.0, 0.1]
+    a = [0.0, 0.5, 0.3, 0.0, 0.0, 0.0]
+    alpha = [np.pi/2, 0.0, 0.0, np.pi/2, -np.pi/2, 0.0]
+
+    T = np.eye(4)
+
+    for i in range(6):
+        T = T @ dh_matrix(thetas[i], d[i], a[i], alpha[i])
+
+    position = T[:3, 3]
+    return position
+
 
 def ground_truth(X):
-    Y = np.array( spatial2(X[:,0],X[:,1],X[:,2])).T
-    return Y.reshape(-1,dimY)
+    """
+    X: shape (N, 6)
+    Returns: shape (N, 3)
+    """
+    Y = np.array([forward_kinematics(x) for x in X])
+    return Y.reshape(-1, dimY)
+
+
+# =========================
+# Data Sampling
+# =========================
 
 def sample_data(n=1000):
-    data = np.random.uniform(low, high, size=(n,dimX))
-    return data.reshape(-1,dimX) 
+    data = np.random.uniform(low, high, size=(n, dimX))
+    return data.reshape(-1, dimX)
+
 
 def enforce_boundaries(pts):
-    return pts.reshape(-1,dimX) 
+    pts = np.clip(pts, low, high)
+    return pts.reshape(-1, dimX)
+
 
 def perturb_data(pts, eps):
-    # pts: shape (N, 2)
-    
-    # random perturbation
     noise = np.random.uniform(-eps, eps, size=pts.shape)
     pts_new = pts + noise
-
-    # enforce boundaries
     pts_new = enforce_boundaries(pts_new)
-    return pts_new.reshape(-1,dimX) 
+    return pts_new.reshape(-1, dimX)
 
 
+# =========================
+# Example Run
+# =========================
+
+if __name__ == "__main__":
+    X = sample_data(num_data_points)
+    Y = ground_truth(X)
+    print("Sample input shape:", X.shape)
+    print("Sample output shape:", Y.shape)

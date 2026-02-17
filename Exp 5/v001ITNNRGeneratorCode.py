@@ -22,7 +22,7 @@ def mean_coord_distance(d, k, num_pts):
     return 2*cd * (k / (num_pts * Vd))**(1/d)
 
 def naive_coord_distance(d,k,num_pts):#
-    return (k/num_pts)**(1/d)
+    return (k/num_pts/10)**(1/d)
 
 class PairGenerator(Sequence):
     def __init__(self, batch_size=32):

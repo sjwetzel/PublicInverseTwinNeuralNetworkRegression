@@ -132,7 +132,7 @@ for i in range(5):
     ])
     # 3. Compile the model
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=0.00001),
+        optimizer=keras.optimizers.Adam(learning_rate=0.0001),
         loss="mae"
     )
     # early stopping 

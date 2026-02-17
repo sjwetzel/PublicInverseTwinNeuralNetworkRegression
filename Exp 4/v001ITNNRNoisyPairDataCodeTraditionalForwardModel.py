@@ -27,7 +27,7 @@ def naive_coord_distance(d,k,num_pts):#
 class PairGenerator(Sequence):
     def __init__(self, batch_size=32):
         self.batch_size = batch_size
-        self.steps_per_epoch = int(10*num_data_points/batch_size*K_MAX )
+        self.steps_per_epoch = int(num_data_points/batch_size*K_MAX )
         self.sample_ranges = (high-low)*mean_coord_distance(dimX,2,num_anchors)
 
     def __len__(self):
@@ -109,17 +109,16 @@ collect_ITNNR_mse_list = []
 collect_kNN_mse_list = []
 collect_best_ITNNR_mse = []
 collect_best_ITNNR_mse_learned = []
+X = sample_data(num_data_points)
+Y = ground_truth(X)
+Y = Y * np.random.normal(1.0, noise, size=Y.shape)
+(x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=0)
+
 for i in range(5):
     print(f'run {i}')
     ### Training
     np.random.seed(i)
     keras.utils.set_random_seed(i)
-    
-    X = sample_data(num_data_points)
-    Y = ground_truth(X)
-    Y = Y * np.random.normal(1.0, noise, size=Y.shape)
-    # Train Val Test Split
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=i)
     
     x_anchor = x_train[:num_anchors]
     y_anchor = y_train[:num_anchors]
@@ -139,23 +138,23 @@ for i in range(5):
     ])
     # 3. Compile the model
     forward_model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=0.00001),
+        optimizer=keras.optimizers.Adam(learning_rate=0.0001),
         loss="mae"
     )
     # early stopping 
     early_stopper = EarlyStopping(
         monitor='val_loss',
-        patience=int(10000/num_data_points), # Stop if no improvement after 10 epochs
+        patience=100, # Stop if no improvement after 10 epochs
         restore_best_weights=True # Restore best weights
     )
     # learning rate decay
     reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5,
-                                  patience=int(4000/num_data_points))
+                                  patience=40)
     
     # Train on data
     history = forward_model.fit(x_train,y_train,
         validation_data=(x_val, y_val),
-        epochs=int(200000/num_data_points),       # Upper limit 200
+        epochs=2000,       # Upper limit 200
         batch_size=32,
         callbacks=[early_stopper,reduce_lr], # Add callback
         verbose=0
@@ -236,8 +235,8 @@ for i in range(5):
         y_reconstructed_knn = ground_truth(enforce_boundaries(x_preds_knn))
     
         ITNNR_predictions.append(x_preds)
-        ITNNR_errors.append((y_reconstructed - y_test)**2)
-        ITNNR_errors_learned.append((y_reconstructed_learned - y_test)**2)
+        ITNNR_errors.append(np.sum((y_reconstructed - y_test)**2,axis=-1))
+        ITNNR_errors_learned.append(np.sum((y_reconstructed_learned - y_test)**2,axis=-1))
     
         ITNNR_mse = np.mean((y_reconstructed - y_test)**2)
         kNN_mse =  np.mean((y_reconstructed_knn - y_test)**2)
@@ -260,8 +259,8 @@ for i in range(5):
     combined_predictions = np.stack(ITNNR_predictions, axis=0)
     
     # Select elementwise using fancy indexing
-    best_predictions = combined_predictions[best_idx, np.arange(combined_predictions.shape[1])[:,None], np.arange(combined_predictions.shape[2])]
-    best_predictions_learned = combined_predictions[best_idx_learned, np.arange(combined_predictions.shape[1])[:,None], np.arange(combined_predictions.shape[2])]
+    best_predictions = combined_predictions[best_idx, np.arange(combined_predictions.shape[1])]
+    best_predictions_learned = combined_predictions[best_idx_learned, np.arange(combined_predictions.shape[1])]
     
     best_y_reconstructed = ground_truth(enforce_boundaries(best_predictions))
     best_ITNNR_mse = np.mean((best_y_reconstructed - y_test)**2)

@@ -27,7 +27,7 @@ def naive_coord_distance(d,k,num_pts):#
 class PairGenerator(Sequence):
     def __init__(self, batch_size=32):
         self.batch_size = batch_size
-        self.steps_per_epoch = int(num_data_points/batch_size*K_MAX )
+        self.steps_per_epoch = int(10*num_data_points/batch_size*K_MAX )
         self.sample_ranges = (high-low)*mean_coord_distance(dimX,2,num_anchors)
 
     def __len__(self):
@@ -106,17 +106,18 @@ def predict_all_knn(y_new, k, y_anchor, x_anchor):
 collect_ITNNR_mse_list = []
 collect_kNN_mse_list = []
 collect_best_ITNNR_mse = []
-X = sample_data(num_data_points)
-Y = ground_truth(X)
-(x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=0)
-
 for i in range(5):
     print(f'run {i}')
     
     ### Training
     np.random.seed(i)
     keras.utils.set_random_seed(i)
-        
+    
+    X = sample_data(num_data_points)
+    Y = ground_truth(X)
+    # Train Val Test Split
+    (x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=i)
+    
     x_anchor = x_train[:num_anchors]
     y_anchor = y_train[:num_anchors]
     

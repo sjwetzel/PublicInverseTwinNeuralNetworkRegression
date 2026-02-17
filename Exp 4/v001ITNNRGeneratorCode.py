@@ -19,15 +19,15 @@ from data_utils import num_data_points,num_anchors,ground_truth,sample_data,enfo
 def mean_coord_distance(d, k, num_pts):
     Vd = math.pi**(d/2) / math.gamma(1 + d/2)
     cd = math.gamma(d/2) / (math.sqrt(math.pi) * math.gamma((d+1)/2))
-    return cd * (k / (num_pts * Vd))**(1/d)
+    return 2*cd * (k / (num_pts * Vd))**(1/d)
 
 def naive_coord_distance(d,k,num_pts):#
-    return (k/num_pts/10)**(1/d)
+    return (k/num_pts)**(1/d)
 
 class PairGenerator(Sequence):
     def __init__(self, batch_size=32):
         self.batch_size = batch_size
-        self.steps_per_epoch = int(10*num_data_points/batch_size*K_MAX )
+        self.steps_per_epoch = int(num_data_points/batch_size*K_MAX )
         self.sample_ranges = (high-low)*mean_coord_distance(dimX,2,num_anchors)
 
     def __len__(self):
@@ -106,18 +106,17 @@ def predict_all_knn(y_new, k, y_anchor, x_anchor):
 collect_ITNNR_mse_list = []
 collect_kNN_mse_list = []
 collect_best_ITNNR_mse = []
+X = sample_data(num_data_points)
+Y = ground_truth(X)
+(x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=0)
+
 for i in range(5):
     print(f'run {i}')
     
     ### Training
     np.random.seed(i)
     keras.utils.set_random_seed(i)
-    
-    X = sample_data(num_data_points)
-    Y = ground_truth(X)
-    # Train Val Test Split
-    (x_train, y_train), (x_val, y_val), (x_test, y_test) = split(X, Y, val_pct=0.2, test_pct=0.2, seed=i)
-    
+        
     x_anchor = x_train[:num_anchors]
     y_anchor = y_train[:num_anchors]
     
@@ -189,7 +188,7 @@ for i in range(5):
         y_reconstructed_knn = ground_truth(enforce_boundaries(x_preds_knn))
     
         ITNNR_predictions.append(x_preds)
-        ITNNR_errors.append((y_reconstructed - y_test)**2)
+        ITNNR_errors.append(np.sum((y_reconstructed - y_test)**2,axis=-1))
     
         ITNNR_mse = np.mean((y_reconstructed - y_test)**2)
         kNN_mse =  np.mean((y_reconstructed_knn - y_test)**2)
@@ -207,7 +206,7 @@ for i in range(5):
     # Stack predictions
     combined_predictions = np.stack(ITNNR_predictions, axis=0)
     # Select elementwise using fancy indexing
-    best_predictions = combined_predictions[best_idx, np.arange(combined_predictions.shape[1])[:,None], np.arange(combined_predictions.shape[2])]
+    best_predictions = combined_predictions[best_idx, np.arange(combined_predictions.shape[1])]
      
     best_y_reconstructed = ground_truth(enforce_boundaries(best_predictions))
     best_ITNNR_mse = np.mean((best_y_reconstructed - y_test)**2)

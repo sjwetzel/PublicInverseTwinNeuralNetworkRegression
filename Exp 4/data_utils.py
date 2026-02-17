@@ -9,15 +9,15 @@ import numpy as np
 
 # data ranges
 dimX = 2
-dimY = 1
+dimY = 2
 
-low = -1 # if the data ranges are in different orders of magnitudes, normalize to ensure proper nearest neighbor finding
-high = 1
+low = -3 # if the data ranges are in different orders of magnitudes, normalize to ensure proper nearest neighbor finding
+high = 3
 
-num_data_points = 500
-noise = 0.02
+num_data_points = 1000
+noise = 0.01
 
-num_anchors = 300 # max 0.6 * num_data_points, to leave room for val and test sets
+num_anchors = 600 # max 0.6 * num_data_points, to leave room for val and test sets
 
 K_MAX = 5      # Upper limit for k
 
@@ -25,28 +25,14 @@ K_MAX = 5      # Upper limit for k
 # ground truth
 
 def ground_truth(X):
-    Y = np.array(np.sqrt(1-X[:,0]**2 - X[:,1]**2)).T
+    Y = np.array( (X[:,0]**3 - 2*X[:,0]*X[:,1]**2 + 5 * X[:,0] + 5* X[:,1] , X[:,1]**2 -2*X[:,0]*X[:,1]+3*X[:,0]-2*X[:,1])  ).T
     return Y.reshape(-1,dimY)
 
 def sample_data(n=1000):
-    xs, ys = [], []
-    while len(xs) < n:
-        x = np.random.uniform(low,high)
-        y = np.random.uniform(low,high)
-        if x*x + y*y < 0.99:
-            xs.append(x)
-            ys.append(y)
-    data = np.concatenate([[xs], [ys]],axis=0).T
+    data = np.random.uniform(low, high, size=(n,dimX))
     return data.reshape(-1,dimX) 
 
 def enforce_boundaries(pts):
-    # compute radius
-    r = np.linalg.norm(pts, axis=1)
-
-    # any point with r > 1 gets projected back to the circle
-    mask = r > 0.999
-    pts[mask] = pts[mask] / (r[mask, None]+0.000001)
-
     return pts.reshape(-1,dimX) 
 
 def perturb_data(pts, eps):
